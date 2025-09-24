@@ -97,8 +97,18 @@ export default function CommunityPanel({ roomId, room, messages, aiSummary }: { 
     setEvents(e);
   }, []);
 
-  // Participants (mock): derive from messages authors
+  // Participants: use actual room data if available, otherwise derive from messages
   const participants = useMemo(() => {
+    if (room?.recentUsers && Array.isArray(room.recentUsers)) {
+      return room.recentUsers.map((user: any, i: number) => ({
+        id: user.id || user.name,
+        name: user.name,
+        role: i === 0 ? "owner" : i % 7 === 0 ? "admin" : i % 5 === 0 ? "mod" : "member",
+        online: user.online || true
+      }));
+    }
+    
+    // Fallback: derive from messages authors
     const map = new Map<string, { id: string; name: string; role: "owner"|"admin"|"mod"|"member"; online: boolean }>();
     (messages ?? []).forEach((m, i) => {
       if (!map.has(m.author)) {
@@ -107,7 +117,7 @@ export default function CommunityPanel({ roomId, room, messages, aiSummary }: { 
       }
     });
     return Array.from(map.values()).slice(0, 12);
-  }, [messages]);
+  }, [room, messages]);
 
   // Insights (mock heuristics)
   const STOP = new Set(["the","a","an","and","or","to","of","in","on","for","is","are","it","this","with","as","at","by","we","you","i","me","our","your","their","they","he","she","them","us","not","no","do","does","did","have","has","had","so","if","then","than","too","very","can","could","should","would","will","about","into","out","up","down","over","under","more","most","less","least","just"]);
@@ -301,7 +311,11 @@ export default function CommunityPanel({ roomId, room, messages, aiSummary }: { 
             <div>
               <div className="text-sm font-medium mb-2">공지/고정</div>
               <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
-                <li>방 규칙: 친절하게 대화하기, 스팸 금지</li>
+                {room?.rules ? (
+                  <li>방 규칙: {room.rules}</li>
+                ) : (
+                  <li>방 규칙: 친절하게 대화하기, 스팸 금지</li>
+                )}
                 <li>운영자 공지: 이번 주 금요일 8시 토론회</li>
                 <li>주요 자료: 온보딩 가이드, 모델 벤치마크 링크</li>
               </ul>

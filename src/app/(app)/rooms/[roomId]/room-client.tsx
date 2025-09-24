@@ -14,6 +14,8 @@ export default function RoomClient({ roomId, room }: { roomId: string; room?: Ro
   const [messages, setMessages] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [roomInfo, setRoomInfo] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   
   // AI sync state
@@ -25,6 +27,41 @@ export default function RoomClient({ roomId, room }: { roomId: string; room?: Ro
   const [editTitle, setEditTitle] = useState('');
   const [editContent, setEditContent] = useState('');
 
+  // 방 정보 가져오기
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}`, { cache: "no-store" });
+        const data = await res.json();
+        if (res.ok && alive) {
+          setRoomInfo(data.room);
+        }
+      } catch (e) {
+        console.error('Error fetching room info:', e);
+      }
+    })();
+    return () => { alive = false };
+  }, [roomId]);
+
+  // 현재 사용자 정보 가져오기
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { cache: "no-store" });
+        const data = await res.json();
+        if (res.ok && alive) {
+          setCurrentUser(data.user);
+        }
+      } catch (e) {
+        console.error('Error fetching user info:', e);
+      }
+    })();
+    return () => { alive = false };
+  }, []);
+
+  // 메시지 가져오기
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -46,7 +83,7 @@ export default function RoomClient({ roomId, room }: { roomId: string; room?: Ro
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  const title = useMemo(() => room?.name || `Room ${roomId}`, [room?.name, roomId]);
+  const title = useMemo(() => roomInfo?.name || room?.name || `Room ${roomId}`, [roomInfo?.name, room?.name, roomId]);
 
   // AI sync function
   const handleAISync = async () => {
@@ -182,13 +219,18 @@ export default function RoomClient({ roomId, room }: { roomId: string; room?: Ro
   };
 
   async function handleSend(text: string) {
-    const optimistic = { id: `tmp_${Date.now()}`, text, author: "me", createdAt: new Date() };
+    const authorName = currentUser?.name || "익명";
+    const optimistic = { id: `tmp_${Date.now()}`, text, author: authorName, createdAt: new Date() };
     setMessages((prev) => [...prev, optimistic]);
     try {
       const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, author: "me" }),
+        body: JSON.stringify({ 
+          text, 
+          author: authorName,
+          userId: currentUser?.id || null
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
@@ -205,7 +247,7 @@ export default function RoomClient({ roomId, room }: { roomId: string; room?: Ro
       <aside className="border-t lg:border-t-0 lg:border-r border-border h-full min-h-0 overflow-hidden">
         <CommunityPanel 
           roomId={roomId} 
-          room={room} 
+          room={roomInfo || room} 
           messages={messages} 
           aiSummary={aiSummary}
         />
@@ -217,9 +259,13 @@ export default function RoomClient({ roomId, room }: { roomId: string; room?: Ro
         <div className="border-b border-border px-4 py-3 flex items-center gap-3">
           <div className="min-w-0">
             <div className="font-medium truncate">{title}</div>
-            <div className="text-xs text-muted-foreground">총 120명 · 현재 15명 활동 중</div>
-            {room?.description && (
-              <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{room.description}</div>
+            <div className="text-xs text-muted-foreground">
+              총 {roomInfo?.memberCount || 0}명 · 현재 {roomInfo?.recentUsers?.length || 0}명 활동 중
+            </div>
+            {(roomInfo?.description || room?.description) && (
+              <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                {roomInfo?.description || room?.description}
+              </div>
             )}
           </div>
           <div className="flex-1" />

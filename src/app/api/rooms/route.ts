@@ -1,10 +1,38 @@
 import { NextResponse } from "next/server";
-import { createRoom, listRooms } from "@/server/inmemory";
+import { createRoom, listRooms } from "@/lib/database";
+import { prisma } from "@/lib/db";
 
 export async function GET() {
-  // List rooms (in-memory)
-  const rooms = listRooms().map((r, i) => ({ id: r.id, name: r.name, members: 20 + i * 7 }));
-  return NextResponse.json({ rooms });
+  try {
+    // List rooms from database
+    const rooms = await listRooms();
+    const roomsWithMembers = await Promise.all(
+      rooms.map(async (room) => {
+        // 실제 참여자 수 계산 (메시지를 작성한 고유 사용자 수)
+        const memberCount = await prisma.message.groupBy({
+          by: ['userId'],
+          where: { 
+            roomId: room.id,
+            userId: { not: null }
+          },
+          _count: { userId: true }
+        });
+        
+        return { 
+          id: room.id, 
+          name: room.name, 
+          description: room.description,
+          tags: room.tags,
+          members: memberCount.length || 0
+        };
+      })
+    );
+    
+    return NextResponse.json({ rooms: roomsWithMembers });
+  } catch (error) {
+    console.error('Error fetching rooms:', error);
+    return NextResponse.json({ message: "방 목록을 불러오는데 실패했습니다." }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
