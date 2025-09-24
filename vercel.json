@@ -17,7 +17,13 @@
     }
   },
   "regions": ["iad1"],
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
+  ]
 }
 
 
