@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: [],
+  serverExternalPackages: ['@prisma/client'],
   images: {
     domains: ['localhost'],
     remotePatterns: [
@@ -27,6 +27,13 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   // 정적 생성 비활성화 (Next.js 15 버그 해결)
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['localhost:3000', '*.vercel.app'],
+    },
+  },
+  // 빌드 시 정적 생성 스킵
+  skipTrailingSlashRedirect: true,
   trailingSlash: false,
 };
 
