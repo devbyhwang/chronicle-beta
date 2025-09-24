@@ -31,7 +31,14 @@ export async function GET() {
     return NextResponse.json({ rooms: roomsWithMembers });
   } catch (error) {
     console.error('Error fetching rooms:', error);
-    return NextResponse.json({ message: "방 목록을 불러오는데 실패했습니다." }, { status: 500 });
+    
+    // 데이터베이스 연결 실패 시 기본 방 목록 반환
+    const fallbackRooms = [
+      { id: 'demo-1', name: '데모 방 1', description: '데모용 채팅방입니다', tags: ['demo'], members: 0 },
+      { id: 'demo-2', name: '데모 방 2', description: '데모용 채팅방입니다', tags: ['demo'], members: 0 },
+    ];
+    
+    return NextResponse.json({ rooms: fallbackRooms });
   }
 }
 
