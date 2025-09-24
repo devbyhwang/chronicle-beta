@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRoom } from "@/lib/database";
 import { prisma } from "@/lib/db";
+import { getOnlineUsers } from "@/lib/redis";
 
 type ParamsArg = { params: Promise<{ roomId: string }> };
 
@@ -23,7 +24,10 @@ export async function GET(_: Request, { params }: ParamsArg) {
       _count: { userId: true }
     });
     
-    // 최근 활동한 사용자들 (온라인 상태 시뮬레이션)
+    // 실제 온라인 사용자들 (Redis에서 가져오기)
+    const onlineUsers = await getOnlineUsers(room.id);
+    
+    // 최근 활동한 사용자들 (데이터베이스에서 가져오기)
     const recentUsers = await prisma.message.findMany({
       where: { 
         roomId: room.id,
@@ -41,6 +45,14 @@ export async function GET(_: Request, { params }: ParamsArg) {
       take: 10
     });
     
+    // 온라인 사용자와 최근 사용자 결합
+    const combinedUsers = recentUsers.map(m => ({
+      id: m.user?.id,
+      name: m.user?.name,
+      avatar: m.user?.avatar,
+      online: onlineUsers.some(ou => ou.userId === m.user?.id)
+    }));
+    
     return NextResponse.json({
       room: {
         id: room.id,
@@ -50,12 +62,7 @@ export async function GET(_: Request, { params }: ParamsArg) {
         rules: room.rules,
         createdAt: room.createdAt,
         memberCount: memberCount.length,
-        recentUsers: recentUsers.map(m => ({
-          id: m.user?.id,
-          name: m.user?.name,
-          avatar: m.user?.avatar,
-          online: true // 최근 활동한 사용자는 온라인으로 표시
-        }))
+        recentUsers: combinedUsers
       },
     });
   } catch (error) {

@@ -61,6 +61,35 @@ export default function RoomClient({ roomId, room }: { roomId: string; room?: Ro
     return () => { alive = false };
   }, []);
 
+  // 사용자 온라인 상태 추적
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    
+    let interval: NodeJS.Timeout;
+    
+    const updateOnlineStatus = async () => {
+      try {
+        await fetch(`/api/rooms/${encodeURIComponent(roomId)}/online`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: currentUser.id }),
+        });
+      } catch (e) {
+        console.error('Error updating online status:', e);
+      }
+    };
+    
+    // 즉시 온라인 상태 설정
+    updateOnlineStatus();
+    
+    // 30초마다 온라인 상태 갱신
+    interval = setInterval(updateOnlineStatus, 30000);
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [currentUser?.id, roomId]);
+
   // 메시지 가져오기
   useEffect(() => {
     let alive = true;
